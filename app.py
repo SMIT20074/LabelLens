@@ -605,6 +605,22 @@ def save_sample(name, profile, result):
     return path.name
 
 
+import time as _time, threading as _threading
+_RL = {}
+_RL_LOCK = _threading.Lock()
+
+def _rate_ok(ip):
+    now = _time.time()
+    with _RL_LOCK:
+        hits = [t for t in _RL.get(ip, []) if now - t < 86400]
+        recent = [t for t in hits if now - t < 600]
+        if len(recent) >= 60 or len(hits) >= 800:
+            _RL[ip] = hits
+            return False
+        hits.append(now)
+        _RL[ip] = hits
+        return True
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "LabelLens"
 
@@ -641,6 +657,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
+        xff = self.headers.get("X-Forwarded-For", "")
+        ip = xff.split(",")[-1].strip() if xff else self.client_address[0]
+        if path == "/save_sample" and self.client_address[0] not in ("127.0.0.1", "::1"):
+            self._json(403, {"error": "Not allowed."})
+            return
+        if path in ("/scan", "/analyze", "/chat") and not _rate_ok(ip):
+            self._json(429, {"error": "Too many scans. Please wait a few minutes."})
+            return
         try:
             size = int(self.headers.get("Content-Length") or 0)
             if size <= 0 or size > MAX_BODY:
