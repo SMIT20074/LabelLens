@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: labellens
+    runtime: python
+    branch: main
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    healthCheckPath: /health
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
