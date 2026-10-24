@@ -22,7 +22,7 @@ import time
 MODEL_NAME = "gemma-4-26b-a4b-it"
 
 MAX_SIDE = 1024        # smaller photo = faster (was 1600)
-TIMEOUT_MS = 20000     # per try
+TIMEOUT_MS = 35000     # per try
 ATTEMPTS = 2           # 1 try + 1 retry (Google 500, timeout, bad JSON)
 MAX_TOKENS = 1500      # shorter answer = faster (was 3000)
 MIN_CONFIDENCE = 0.6   # below this we ask for a new photo

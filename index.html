@@ -235,7 +235,7 @@ function lookupHtml(d){
   if(d.suggestions&&d.suggestions.length)h+='<h2 style="margin-top:12px">💡 Suggestions</h2>'+list(d.suggestions);
   return h+'<p style="margin-top:8px;font-size:.8rem">'+(d.cached?"⚡ From saved data":"Fresh lookup")+" · "+esc(d.ms)+" ms</p></div>";
 }
-const post=(u,o,ms)=>{const c=new AbortController(),t=setTimeout(()=>c.abort(),ms||25000);return fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(o),signal:c.signal}).then(r=>r.json()).finally(()=>clearTimeout(t))};
+const post=(u,o,ms)=>{const c=new AbortController(),t=setTimeout(()=>c.abort(),ms||80000);return fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(o),signal:c.signal}).then(r=>r.json()).finally(()=>clearTimeout(t))};
 
 /* photo -> crop -> enhance -> read label + search online, both at once */
 async function send(p){
