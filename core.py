@@ -245,6 +245,12 @@ def _normalize(data):
         result["reasons"].append("The photo was not clear enough to be sure.")
     if not result["retake_photo"]:
         _apply_expiry(result, data.get("expiry_date"))
+    # LABELLENS_PATCH_FSSAI
+    try:
+        from fssai_check import check_fssai
+        result["fssai_checks"] = check_fssai(result.get("text_read"), result.get("ingredients"), result.get("confidence"))
+    except Exception:
+        result["fssai_checks"] = []
     return result
 
 
