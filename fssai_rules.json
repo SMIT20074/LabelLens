@@ -1,0 +1,12 @@
+{
+  "source_document": "Food Safety and Standards (Licensing and Registration of Food Businesses) Regulations, 2011 - Version II (09.11.2017), uploaded by the team",
+  "status": "needs_legal_review",
+  "note": "Amendments after this version are not loaded. Check fssai.gov.in before relying on any rule.",
+  "rules": [
+    {"rule_id": "LIC-001", "regulation_ref": "2.1.7(1)", "summary": "A licence or registration is valid for 1 to 5 years, as chosen by the operator, from the date of issue.", "label_scan_can_check": false},
+    {"rule_id": "LIC-002", "regulation_ref": "2.1.7(2)", "summary": "A renewal application is due at least 30 days before the expiry date on the licence.", "label_scan_can_check": false},
+    {"rule_id": "LIC-003", "regulation_ref": "2.1.4(6)", "summary": "A true copy of the licence must be displayed prominently in the business premises. This is a premises rule, not a pack-label rule.", "label_scan_can_check": false},
+    {"rule_id": "LIC-004", "regulation_ref": "1.2.1(4), 2.1.1, 2.1.2", "summary": "Petty food businesses register; other food businesses need a licence. A pack does not show which applies.", "label_scan_can_check": false},
+    {"rule_id": "LIC-005", "regulation_ref": "2.1.7(5)", "summary": "A licence for which renewal was not applied for in time expires, so a printed number alone does not prove it is current.", "label_scan_can_check": false}
+  ]
+}

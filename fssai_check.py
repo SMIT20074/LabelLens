@@ -48,3 +48,27 @@ def check_fssai(text_read, ingredients, confidence):
     except Exception:
         pass
     return out
+
+# LABELLENS_PATCH_FSSAI_LICENCE
+import json as _json, os as _os, re as _re
+def get_fssai_rules():
+    try:
+        p = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "fssai_rules.json")
+        return _json.load(open(p))
+    except Exception:
+        return {"rules": []}
+
+_prev_check_fssai = check_fssai
+def check_fssai(text_read, ingredients, confidence):
+    out = _prev_check_fssai(text_read, ingredients, confidence)
+    try:
+        if out and out[0].get("rule") == "ALL":
+            return out
+        t = (text_read or "").lower()
+        if _re.search(r"(?<!\d)(\d[\s-]?){14}(?!\d)", t):
+            out.append({"rule": "FSSAI licence validity", "status": "unable_to_determine",
+                "note": "A licence is valid for 1 to 5 years from its issue date. A printed number does not show whether it is still valid. Check it on the official FSSAI licence search (FoSCoS).",
+                "source": "FSS (Licensing and Registration) Regulations, 2011, reg 2.1.7(1) - needs legal review"})
+    except Exception:
+        pass
+    return out
