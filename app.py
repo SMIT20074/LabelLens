@@ -163,7 +163,7 @@ label.ck input{margin-top:5px;width:18px;height:18px;accent-color:var(--ink)}
       <img id="preview" alt="Your label photo">
       <i class="cn c1"></i><i class="cn c2"></i><i class="cn c3"></i><i class="cn c4"></i><div class="laser"></div><div class="meter"><i id="meterFill"></i></div>
     </div>
-    <div class="btnrow"><button class="ghost" id="flip" type="button">Flip camera</button><button class="ghost" id="auto" type="button">Auto-scan: on</button><label class="ghost" style="cursor:pointer">Upload photo<input type="file" id="file" accept="image/*" hidden></label></div><div class="hint" id="hint"></div>
+    <div class="btnrow"><button class="ghost" id="flip" type="button">Flip camera</button><button class="ghost" id="auto" type="button">Auto-scan: off</button><label class="ghost" style="cursor:pointer">Upload photo<input type="file" id="file" accept="image/*" hidden></label></div><div class="hint" id="hint"></div>
     <button class="cta" id="go" type="button" disabled>Check this label</button>
     <div class="status" id="status" role="status"></div>
     <section class="box" id="histBox" hidden style="margin-top:12px"><h2>Recent scans</h2><div class="hist" id="hist"></div><button class="ghost" id="clearHist" type="button">Clear history</button></section>
@@ -391,7 +391,7 @@ async function loadHealth(){
   if(miss.length)s.appendChild(el("div","banner warn","Live scans are off: "+miss.join("; ")+". The offline demo still works."))}
 
 /* ===== live camera: behaves like a scanner ===== */
-var stream=null,camTimer=null,locked=false,busy=false,prevG=null,okTicks=0,autoOn=true,facing="environment";
+var stream=null,camTimer=null,locked=false,busy=false,prevG=null,okTicks=0,autoOn=false,facing="environment";
 var sm=document.createElement("canvas");sm.width=160;sm.height=120;
 function camMsg(m){$("#emptyT").textContent="Camera is off";$("#emptyS").textContent=m}
 function hint(m){$("#hint").textContent=m}
