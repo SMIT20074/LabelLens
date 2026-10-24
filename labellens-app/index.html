@@ -1389,27 +1389,25 @@ window.fetch=function(u,o){
 })();
 </script>
 
-<!-- LABELLENS_PATCH_MOCHI_VOICE -->
-<style>
-.llv{position:fixed;right:12px;z-index:9999;width:48px;height:48px;border-radius:50%;border:2px solid #a3e635;background:#1a0b2e;color:#a3e635;font-size:20px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.5)}
-.llv.on{background:#a3e635;color:#1a0b2e}
-#llv-mic{bottom:150px}#llv-spk{bottom:206px}#llv-lang{bottom:262px;font-size:14px;font-weight:700}
-</style>
+
+
+<!-- LABELLENS_PATCH_MOCHI_VOICE2 -->
 <script>
 (function(){
 var SPEAK=true;try{if(localStorage.getItem("llv_speak")==="0")SPEAK=false}catch(e){}
 var micLang="hi-IN";
 var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 var synth=window.speechSynthesis;
+var rec=null,askBtn=null;
 function clean(t){return String(t).replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,"").replace(/[*#_`>~|]/g," ").replace(/\s+/g," ").trim();}
 function pickVoice(hi){var v=synth.getVoices()||[];var want=hi?["hi"]:["en-IN","en"];
  for(var i=0;i<want.length;i++){for(var j=0;j<v.length;j++){if(v[j].lang&&v[j].lang.indexOf(want[i])===0)return v[j];}}return null;}
 function speak(text){
  if(!synth||!SPEAK)return;
- var t=clean(text);if(!t)return;
+ var t=clean(text);if(!t||/INVALID_ARGUMENT|API key not valid/i.test(t))return;
  synth.cancel();
  var hi=/[\u0900-\u097F]/.test(t);
- var parts=t.match(/[^.!?।]+[.!?।]*/g)||[t];
+ var parts=t.match(/[^.!?\u0964]+[.!?\u0964]*/g)||[t];
  parts.forEach(function(p){p=p.trim();if(!p)return;
   var u=new SpeechSynthesisUtterance(p);u.lang=hi?"hi-IN":"en-IN";
   var v=pickVoice(hi);if(v)u.voice=v;u.rate=0.95;synth.speak(u);});
@@ -1433,47 +1431,57 @@ window.fetch=function(u,o){
  }catch(e){}
  return p;
 };
-function mk(id,txt,fn,bottom){var b=document.createElement("button");b.id=id;b.className="llv";b.textContent=txt;b.onclick=fn;document.body.appendChild(b);return b;}
-var spk=mk("llv-spk",SPEAK?"\uD83D\uDD0A":"\uD83D\uDD07",function(){
- SPEAK=!SPEAK;try{localStorage.setItem("llv_speak",SPEAK?"1":"0")}catch(e){}
- spk.textContent=SPEAK?"\uD83D\uDD0A":"\uD83D\uDD07";if(!SPEAK&&synth)synth.cancel();
- if(SPEAK&&synth){var u=new SpeechSynthesisUtterance(" ");synth.speak(u);}
-});
-var lang=mk("llv-lang","\u0939\u093F",function(){
- micLang=(micLang==="hi-IN")?"en-IN":"hi-IN";lang.textContent=(micLang==="hi-IN")?"\u0939\u093F":"EN";
-});
-function findInput(){
- var c=[].slice.call(document.querySelectorAll("textarea,input[type=text],input:not([type])")).filter(function(e){
-  return e.offsetParent!==null&&!/vegan|allergic/i.test(e.placeholder||"");});
- var m=c.filter(function(e){return /chat|ask|mochi|message|ingredient/i.test((e.id||"")+(e.placeholder||"")+(e.className||""));});
- return (m.length?m[m.length-1]:c[c.length-1])||null;
+function findAsk(){
+ var bs=[].slice.call(document.querySelectorAll("button"));
+ for(var i=0;i<bs.length;i++){
+  if((bs[i].textContent||"").trim()==="Ask"&&bs[i].parentElement&&bs[i].parentElement.querySelector("input,textarea"))return bs[i];
+ }
+ return null;
 }
 function send(t){
- var el=findInput();
- if(!el){alert("Open the Ask AI tab first, then tap the mic. You said: "+t);return;}
+ var a=askBtn||findAsk();if(!a)return;
+ var el=a.parentElement.querySelector("input,textarea");if(!el)return;
  var proto=el.tagName==="TEXTAREA"?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;
  Object.getOwnPropertyDescriptor(proto,"value").set.call(el,t);
  el.dispatchEvent(new Event("input",{bubbles:true}));
- var scope=el.parentElement,btn=null;
- for(var i=0;i<3&&scope&&!btn;i++){
-  var bs=[].slice.call(scope.querySelectorAll("button"));
-  btn=bs.filter(function(b){return /send|ask|go|\u27A4|\u2192|\u2191/i.test((b.textContent||"")+(b.getAttribute("aria-label")||"")+(b.id||""));})[0]||null;
-  scope=scope.parentElement;
- }
- if(btn){btn.click();}else{el.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",code:"Enter",keyCode:13,which:13,bubbles:true}));}
+ setTimeout(function(){a.click()},60);
 }
-var rec=null,mic=mk("llv-mic","\uD83C\uDFA4",function(){
- if(!SR){alert("Voice input works in Chrome. You can still type your question.");return;}
- if(synth)synth.cancel();
- if(rec){try{rec.stop()}catch(e){}return;}
- rec=new SR();rec.lang=micLang;rec.interimResults=false;rec.maxAlternatives=1;
- rec.onstart=function(){mic.className="llv on"};
- rec.onend=function(){mic.className="llv";rec=null};
- rec.onerror=function(){mic.className="llv";rec=null};
- rec.onresult=function(e){var t=e.results[0][0].transcript;if(t)send(t);};
- try{rec.start()}catch(e){rec=null}
-});
-if(synth&&synth.onvoiceschanged!==undefined){synth.onvoiceschanged=function(){};}
+function build(){
+ if(document.getElementById("llv-bar"))return;
+ var a=findAsk();if(!a)return;
+ askBtn=a;
+ var row=a.parentElement;
+ var bar=document.createElement("div");bar.id="llv-bar";
+ bar.style.cssText="display:flex;gap:8px;margin:0 0 8px 0;flex-wrap:wrap;align-items:center";
+ function mk(id,txt,title,fn){
+  var b=document.createElement("button");b.type="button";b.id=id;b.className=a.className;
+  b.textContent=txt;b.title=title;
+  b.style.cssText="width:48px;height:48px;padding:0;min-width:0;border-radius:50%;flex:0 0 48px;font-size:18px;line-height:1;display:inline-flex;align-items:center;justify-content:center";
+  b.onclick=fn;bar.appendChild(b);return b;
+ }
+ var mic=mk("llv-mic","\uD83C\uDFA4","Ask by voice",function(){
+  if(!SR){alert("Voice input works in Chrome. You can still type your question.");return;}
+  if(synth)synth.cancel();
+  if(rec){try{rec.stop()}catch(e){}return;}
+  rec=new SR();rec.lang=micLang;rec.interimResults=false;rec.maxAlternatives=1;
+  rec.onstart=function(){mic.textContent="\u23F9"};
+  rec.onend=function(){mic.textContent="\uD83C\uDFA4";rec=null};
+  rec.onerror=function(){mic.textContent="\uD83C\uDFA4";rec=null};
+  rec.onresult=function(e){var t=e.results[0][0].transcript;if(t)send(t);};
+  try{rec.start()}catch(e){rec=null}
+ });
+ var lang=mk("llv-lang",micLang==="hi-IN"?"\u0939\u093F":"EN","Mic language",function(){
+  micLang=(micLang==="hi-IN")?"en-IN":"hi-IN";
+  lang.textContent=(micLang==="hi-IN")?"\u0939\u093F":"EN";
+ });
+ var spk=mk("llv-spk",SPEAK?"\uD83D\uDD0A":"\uD83D\uDD07","Read answers aloud",function(){
+  SPEAK=!SPEAK;try{localStorage.setItem("llv_speak",SPEAK?"1":"0")}catch(e){}
+  spk.textContent=SPEAK?"\uD83D\uDD0A":"\uD83D\uDD07";
+  if(!SPEAK&&synth)synth.cancel();
+ });
+ row.parentElement.insertBefore(bar,row);
+}
+setInterval(build,800);
 })();
 </script>
 </body>
