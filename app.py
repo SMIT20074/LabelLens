@@ -642,7 +642,11 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         if path == "/":
-            self._send(200, PAGE, "text/html; charset=utf-8")
+            _p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index.html")
+            if os.path.exists(_p) and not self.path.startswith("/?team"):
+                self._send(200, open(_p, "rb").read(), "text/html; charset=utf-8")
+            else:
+                self._send(200, PAGE, "text/html; charset=utf-8")
         elif path == "/samples":
             self._json(200, load_samples())
         elif path == "/health":
@@ -662,7 +666,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/save_sample" and self.client_address[0] not in ("127.0.0.1", "::1"):
             self._json(403, {"error": "Not allowed."})
             return
-        if path in ("/scan", "/analyze", "/chat") and not _rate_ok(ip):
+        if path in ("/scan", "/analyze", "/chat", "/lookup") and not _rate_ok(ip):
             self._json(429, {"error": "Too many scans. Please wait a few minutes."})
             return
         try:
@@ -699,6 +703,9 @@ class Handler(BaseHTTPRequestHandler):
             if isinstance(res, dict):
                 res["facts"] = fx
             self._json(200, res)
+        elif path == "/lookup":
+            import lookup as _lk
+            self._json(200, _lk.lookup(body))
         elif path == "/chat":
             self._json(200, extras.chat(body.get("messages"), body.get("context")))
         elif path == "/save_sample":

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LabelLens</title>
+<style>
+:root{--bg:#ffd23f;--ink:#14213d;--card:#fff;--blue:#3a86ff;--ok:#1fb86b;--care:#ff9f1c;--bad:#ef3b4f;--soft:#fff3c4;--r:20px}
+*{box-sizing:border-box}
+html{color-scheme:light}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Avenir Next","Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif;font-weight:700;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);min-height:100vh;
+background-image:radial-gradient(rgba(20,33,61,.12) 2px,transparent 2px);background-size:22px 22px}
+main{max-width:760px;margin:0 auto;padding:18px 16px 60px}
+h1{font-size:2.3rem;margin:6px 0 2px;letter-spacing:-1px}
+h1 span{display:inline-block;background:var(--ink);color:var(--bg);padding:0 10px;border-radius:12px;transform:rotate(-3deg)}
+.sub{margin:0 0 18px;font-weight:600;opacity:.8}
+h2{font-size:1.15rem;margin:22px 0 10px}
+.card{background:var(--card);border:3px solid var(--ink);border-radius:var(--r);box-shadow:0 7px 0 var(--ink);padding:16px;margin-bottom:18px}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;perspective:800px}
+.opt{all:unset;cursor:pointer;background:var(--card);border:3px solid var(--ink);border-radius:var(--r);box-shadow:0 6px 0 var(--ink);padding:14px;text-align:center;transition:transform .12s,box-shadow .12s,background .12s;transform-style:preserve-3d;will-change:transform}
+.opt b{display:block;font-size:1.6rem}
+.opt small{font-weight:600;opacity:.75}
+.opt:active{transform:translateY(5px)!important;box-shadow:0 1px 0 var(--ink)}
+.opt[aria-pressed=true]{background:var(--blue);color:#fff}
+.opt:focus-visible,.btn:focus-visible,input:focus-visible{outline:4px solid var(--blue);outline-offset:3px}
+.btn{all:unset;cursor:pointer;display:block;text-align:center;background:var(--ink);color:#fff;border:3px solid var(--ink);border-radius:16px;box-shadow:0 6px 0 #000;padding:15px 18px;font-size:1.1rem;transition:transform .1s,box-shadow .1s}
+.btn:active{transform:translateY(5px);box-shadow:0 1px 0 #000}
+.btn.big{background:var(--blue);font-size:1.4rem;padding:20px;margin-top:6px}
+.btn.alt{background:#fff;color:var(--ink);box-shadow:0 6px 0 var(--ink)}
+.row{display:flex;gap:10px}.row>*{flex:1}
+input[type=text]{width:100%;font:inherit;border:3px solid var(--ink);border-radius:14px;padding:13px;background:#fff}
+#drop{display:none}
+#prev{display:none;width:100%;max-height:260px;object-fit:contain;border:3px solid var(--ink);border-radius:16px;background:#fff;margin-bottom:12px}
+#load{display:none;text-align:center}
+#load .bar{height:16px;border:3px solid var(--ink);border-radius:12px;overflow:hidden;background:#fff;margin:12px 0}
+#load .bar i{display:block;height:100%;width:8%;background:var(--blue);transition:width .3s}
+#timer{font-size:2rem}
+.stamp{display:inline-block;font-size:2.6rem;letter-spacing:1px;border:5px solid currentColor;border-radius:16px;padding:2px 18px;transform:rotate(-4deg);animation:slam .35s cubic-bezier(.2,1.6,.4,1)}
+@keyframes slam{from{transform:rotate(-4deg) scale(2.4);opacity:0}to{transform:rotate(-4deg) scale(1);opacity:1}}
+.OK{color:var(--ok)}.CAREFUL{color:var(--care)}.AVOID{color:var(--bad)}
+.pill{display:inline-block;background:var(--soft);border:2px solid var(--ink);border-radius:99px;padding:4px 12px;margin:3px 4px 3px 0;font-size:.9rem}
+.pill.w{background:#ffd9dd}
+ul{padding-left:20px;margin:6px 0}li{margin:4px 0;font-weight:600}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px}
+.facts div{background:var(--soft);border:2px solid var(--ink);border-radius:14px;padding:8px;text-align:center}
+.facts b{display:block;font-size:1.25rem}.facts small{font-weight:600;opacity:.75}
+details{margin-top:10px}summary{cursor:pointer}
+pre{white-space:pre-wrap;background:var(--soft);border:2px solid var(--ink);border-radius:12px;padding:10px;font:600 .85rem ui-monospace,Menlo,monospace}
+.note{font-size:.85rem;font-weight:600;opacity:.8}
+.err{background:#ffd9dd}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+<h1>Label<span>Lens</span></h1>
+<p class="sub">Snap any label. Get a verdict in seconds.</p>
+
+<h2>Who is this for?</h2>
+<div class="opts" id="profiles">
+  <button class="opt" aria-pressed="true" data-p="adult"><b>🧑</b>Adult<br><small>no special needs</small></button>
+  <button class="opt" aria-pressed="false" data-p="child"><b>🧒</b>Child<br><small>under 12</small></button>
+  <button class="opt" aria-pressed="false" data-p="pregnant"><b>🤰</b>Pregnant<br><small>or nursing</small></button>
+  <button class="opt" aria-pressed="false" data-p="diabetic"><b>🩸</b>Diabetic<br><small>watch sugar</small></button>
+  <button class="opt" aria-pressed="false" data-p="allergy"><b>🥜</b>Allergy<br><small>nuts, milk, gluten</small></button>
+  <button class="opt" aria-pressed="false" data-p="elderly"><b>🧓</b>Senior<br><small>60+</small></button>
+</div>
+
+<h2>Scan a label</h2>
+<div class="card">
+  <img id="prev" alt="Photo of the label you picked">
+  <input id="drop" type="file" accept="image/*" capture="environment">
+  <input id="pick" type="file" accept="image/*" style="display:none">
+  <div class="row">
+    <button class="btn" id="cam">📸 Take photo</button>
+    <button class="btn alt" id="up">🖼️ Upload</button>
+  </div>
+  <button class="btn big" id="go" style="display:none">Scan it ⚡</button>
+  <p class="note">Tip: fill the frame, hold steady, light the label. Blurry photos get a retake request, never a false OK.</p>
+</div>
+
+<div class="card" id="load">
+  <div id="timer">0.0s</div>
+  <div class="bar"><i id="barfill"></i></div>
+  <div id="step">Shrinking photo…</div>
+</div>
+
+<div id="out"></div>
+
+<h2>No label? Type the name</h2>
+<div class="card">
+  <div class="row"><input type="text" id="name" placeholder="e.g. Red Bull, Dettol, Maggi"><button class="btn" id="look" style="flex:0 0 auto">Look up</button></div>
+</div>
+
+<p class="note">Informational only. LabelLens never gives a medicine or pesticide dose. Always follow what the pack and your doctor say.</p>
+</main>
+
+<script>
+(function(){
+"use strict";
+var $=function(id){return document.getElementById(id)};
+var profile="adult", file=null, timerId=null;
+
+/* ---- profile cards (quiz-style single select) ---- */
+var pr=$("profiles");
+pr.addEventListener("click",function(e){
+  var b=e.target.closest(".opt"); if(!b) return;
+  [].forEach.call(pr.children,function(c){c.setAttribute("aria-pressed","false")});
+  b.setAttribute("aria-pressed","true"); profile=b.dataset.p;
+});
+
+/* ---- 3D tilt on hover (mouse only) ---- */
+pr.addEventListener("pointermove",function(e){
+  if(e.pointerType!=="mouse") return;
+  var b=e.target.closest(".opt"); if(!b) return;
+  var r=b.getBoundingClientRect(), x=(e.clientX-r.left)/r.width-.5, y=(e.clientY-r.top)/r.height-.5;
+  b.style.transform="rotateX("+(-y*14)+"deg) rotateY("+(x*14)+"deg) translateY(-3px)";
+});
+pr.addEventListener("pointerout",function(e){var b=e.target.closest(".opt"); if(b) b.style.transform=""});
+
+/* ---- pick photo ---- */
+$("cam").onclick=function(){$("drop").click()};
+$("up").onclick=function(){$("pick").click()};
+function chosen(f){
+  if(!f) return; file=f;
+  var p=$("prev"); p.src=URL.createObjectURL(f); p.style.display="block";
+  $("go").style.display="block"; $("out").innerHTML="";
+  $("go").click(); /* auto-scan: one less tap */
+}
+$("drop").onchange=function(){chosen(this.files[0]);this.value=""};
+$("pick").onchange=function(){chosen(this.files[0]);this.value=""};
+$("go").onclick=function(){if(file) scan(file)};
+
+/* ---- speed: shrink photo to 1024px JPEG before upload ---- */
+function shrink(f){
+  return new Promise(function(res,rej){
+    var img=new Image(), u=URL.createObjectURL(f);
+    img.onload=function(){
+      var m=1024, s=Math.min(1,m/Math.max(img.width,img.height));
+      var c=document.createElement("canvas"); c.width=Math.round(img.width*s); c.height=Math.round(img.height*s);
+      c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+      var d=c.toDataURL("image/jpeg",.8); URL.revokeObjectURL(u);
+      res({b64:d.split(",")[1],mime:"image/jpeg"});
+    };
+    img.onerror=function(){rej(new Error("Could not read that image. Try another photo."))};
+    img.src=u;
+  });
+}
+
+/* ---- loading UI ---- */
+function loading(on,msg){
+  $("load").style.display=on?"block":"none";
+  clearInterval(timerId);
+  if(!on) return;
+  var t0=Date.now(), fill=$("barfill"); fill.style.width="8%"; $("step").textContent=msg;
+  timerId=setInterval(function(){
+    var s=(Date.now()-t0)/1000; $("timer").textContent=s.toFixed(1)+"s";
+    fill.style.width=Math.min(92,8+s*9)+"%";
+    if(s>2) $("step").textContent="Gemma is reading the label…";
+    if(s>9) $("step").textContent="Still working. Slow network?";
+  },100);
+}
+
+function post(path,body){
+  return fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
+   .then(function(r){return r.json().catch(function(){return{error:"Server sent an unreadable reply."}}).then(function(j){
+     if(!r.ok && !j.error) j.error="Server error "+r.status; return j;})});
+}
+
+function scan(f){
+  loading(true,"Shrinking photo…");
+  shrink(f).then(function(im){
+    $("step").textContent="Sending…";
+    /* BODY SHAPE: if the server uses different field names, change only these 3 keys */
+    return post("/scan",{image:im.b64,mime:im.mime,profile:profile});
+  }).then(show).catch(function(e){fail(e.message)}).then(function(){loading(false)});
+}
+
+$("look").onclick=function(){
+  var n=$("name").value.trim(); if(!n){fail("Type a product name first.");return}
+  loading(true,"Looking it up…");
+  post("/lookup",{name:n,profile:profile}).then(show).catch(function(e){fail(e.message)}).then(function(){loading(false)});
+};
+$("name").addEventListener("keydown",function(e){if(e.key==="Enter")$("look").click()});
+
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function fail(m){$("out").innerHTML='<div class="card err"><b>Something went wrong.</b><br>'+esc(m)+'</div>';$("out").scrollIntoView({behavior:"smooth"})}
+function list(a){return (a&&a.length)?"<ul>"+a.map(function(x){return"<li>"+esc(x)+"</li>"}).join("")+"</ul>":""}
+function pills(a,w){return (a||[]).map(function(x){return'<span class="pill'+(w?" w":"")+'">'+esc(x)+"</span>"}).join("")}
+
+function factsHtml(f){
+  if(!f||typeof f!=="object") return "";
+  var src=(f.per_100g&&typeof f.per_100g==="object")?f.per_100g:f, cells="";
+  Object.keys(src).forEach(function(k){
+    var v=src[k]; if(v===null||typeof v==="object") return;
+    cells+="<div><b>"+esc(v)+"</b><small>"+esc(k.replace(/_/g," "))+"</small></div>";
+  });
+  return cells?'<h2>Nutrition (per 100 g)</h2><div class="facts">'+cells+"</div>":"";
+}
+
+function show(d){
+  if(!d||d.error&&!d.verdict){fail((d&&d.error)||"No reply from the server.");return}
+  var v=(d.verdict||"CAREFUL").toUpperCase(), h="";
+  h+='<div class="card"><div class="stamp '+esc(v)+'">'+esc(v)+"</div>";
+  if(d.retake_photo||(typeof d.confidence==="number"&&d.confidence<0.6))
+    h+='<p><b>📷 Retake needed.</b> The read was not clear enough to trust. Move closer and avoid glare.</p>';
+  if(typeof d.confidence==="number") h+='<p class="note">Read confidence: '+Math.round(d.confidence*100)+"%"+(d.label_type?" · "+esc(d.label_type):"")+(d.language_detected?" · "+esc(d.language_detected):"")+"</p>";
+  if(d.reasons&&d.reasons.length) h+="<h2>Why</h2>"+list(d.reasons);
+  if(d.warnings&&d.warnings.length) h+="<h2>Warnings</h2>"+pills(d.warnings,true);
+  if(d.ingredients&&d.ingredients.length) h+="<h2>Ingredients</h2>"+pills(d.ingredients);
+  h+=factsHtml(d.facts);
+  if(d.text_read) h+="<details><summary>Exact text read (check it yourself)</summary><pre>"+esc(d.text_read)+"</pre></details>";
+  h+='<p class="note">Informational only. Not medical or safety advice.</p></div>';
+  $("out").innerHTML=h; $("out").scrollIntoView({behavior:"smooth"});
+}
+})();
+</script>
+</body>
+</html>
