@@ -9,14 +9,14 @@ import re
 
 import core
 
-KEYS = ["calories", "sugar_g", "added_sugar_g", "sodium_mg", "sat_fat_g", "fat_g", "carbs_g", "protein_g", "fiber_g"]
+KEYS = ["calories", "sugar_g", "added_sugar_g", "sodium_mg", "sat_fat_g", "fat_g", "carbs_g", "protein_g", "fiber_g", "caffeine_mg"]
 MEALS = ["Breakfast", "Lunch", "Snack", "Dinner"]
 
 FACTS_PROMPT = (
     "You read a product label photo. Return ONLY JSON, no other text: "
     '{"product_name": str or null, "serving_size": str or null, '
     '"per_serving": {"calories": n, "sugar_g": n, "added_sugar_g": n, "sodium_mg": n, "sat_fat_g": n, '
-    '"fat_g": n, "carbs_g": n, "protein_g": n, "fiber_g": n}, '
+    '"fat_g": n, "carbs_g": n, "protein_g": n, "fiber_g": n, "caffeine_mg": n}, '
     '"claim_checks": [{"claim": str, "finding": str, "level": "ok" or "note" or "warn"}], '
     '"concerning": [{"name": str, "why": str}]}. '
     "Rules: use ONLY what is printed on the label. If a number is not printed, use null. Never estimate. "
@@ -25,7 +25,9 @@ FACTS_PROMPT = (
     "and compare it with the printed ingredient list and nutrition table. In finding, say what the printed text shows "
     "and quote the words. Never invent percentages or hidden ingredients. If nothing printed contradicts the claim, level is ok. "
     "concerning: only items actually printed (added sugars, sweeteners, colours, preservatives, E-numbers, palm oil, high sodium). "
-    "why = one short, hedged sentence of general knowledge. Write in English."
+    "why = one short, hedged sentence of general knowledge. Also check vitamin and mineral claims (for example with vitamin B12) "
+    "against the printed nutrition table: if the amount or percent is not printed, say not printed. "
+    "caffeine_mg only if caffeine is printed in mg, otherwise null. Write in English."
 )
 
 CHAT_PROMPT = (
@@ -78,6 +80,65 @@ def _call_json(parts):
     raise RuntimeError(_scrub(last))
 
 
+# LABELLENS_BODYCHECK: plain-code checks against published daily guides (not AI, not medical advice)
+def _age(profile):
+    p = str(profile or "").lower()
+    m = re.search(r"(\d{1,3})\s*(?:years?|yrs?|yo|y/o)|\bage[d]?\s*(\d{1,3})", p) or re.fullmatch(r"\s*(\d{1,3})\s*", p)
+    if m:
+        for g in m.groups():
+            if g:
+                return int(g)
+    if "child" in p or "kid" in p:
+        return 8
+    if "teen" in p:
+        return 15
+    if "elderly" in p or "senior" in p:
+        return 70
+    return None
+
+
+def _body_check(per, profile):
+    p = str(profile or "").lower()
+    age = _age(p)
+    pregnant = "pregnan" in p
+    out = []
+    cf = per.get("caffeine_mg")
+    if cf:
+        if pregnant:
+            lim, who = 200, "pregnancy (ACOG, EFSA)"
+        elif age is not None and age < 12:
+            lim, who = None, ""
+        elif age is not None and age < 18:
+            lim, who = 100, "teens (AACAP)"
+        else:
+            lim, who = 400, "adults (FDA, EFSA)"
+        if lim is None:
+            why = "Not recommended for children (AAP advises against energy drinks)."
+        elif cf > lim:
+            why = "Daily guide for " + who + " is about " + str(lim) + " mg from all sources. ONE serving is already over it."
+        else:
+            why = ("Daily guide for " + who + " is about " + str(lim) + " mg from all sources. This is "
+                   + str(round(100 * cf / lim)) + "% of it; at most " + str(int(lim // cf)) + " per day, with no other caffeine.")
+        if lim is not None and age is not None and age < 18:
+            why += " AAP advises against energy drinks for teens."
+        out.append({"name": "Caffeine " + format(cf, "g") + " mg per serving", "why": why[:200]})
+    sug = per.get("added_sugar_g") if per.get("added_sugar_g") is not None else per.get("sugar_g")
+    if sug:
+        pct = round(100 * sug / 25)
+        if pct >= 20:
+            why = str(pct) + "% of the about 25 g/day WHO ideal limit."
+            if age is not None and age < 18:
+                why += " Children need less than adults."
+            out.append({"name": "Sugar " + format(sug, "g") + " g per serving", "why": why[:200]})
+    na = per.get("sodium_mg")
+    if na:
+        pct = round(100 * na / 2000)
+        if pct >= 20:
+            out.append({"name": "Sodium " + format(na, "g") + " mg per serving",
+                        "why": (str(pct) + "% of the 2000 mg/day WHO limit.")[:200]})
+    return out
+
+
 def facts(raw, mime, profile):
     try:
         from google.genai import types
@@ -95,8 +156,10 @@ def facts(raw, mime, profile):
         for x in list(d.get("concerning") or [])[:8]:
             if isinstance(x, dict) and x.get("name"):
                 conc.append({"name": _s(x.get("name"), 80), "why": _s(x.get("why"), 200)})
+        per = {k: _num(ps.get(k)) for k in KEYS}
+        conc = _body_check(per, profile)[:4] + conc
         return {"product_name": _s(d.get("product_name"), 80), "serving_size": _s(d.get("serving_size"), 40),
-                "per_serving": {k: _num(ps.get(k)) for k in KEYS}, "claim_checks": checks, "concerning": conc}
+                "per_serving": per, "claim_checks": checks, "concerning": conc[:10]}
     except Exception as exc:
         return {"error": _scrub(exc)}
 
