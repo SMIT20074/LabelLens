@@ -64,8 +64,9 @@ def _scrub(msg):
 
 def _call_json(parts):
     from google import genai
+    from google.genai import types as _t
 
-    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY", ""))
+    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY", ""), http_options=_t.HttpOptions(timeout=20000))
     last = None
     for _ in range(2):
         try:
@@ -81,6 +82,7 @@ def facts(raw, mime, profile):
     try:
         from google.genai import types
 
+        raw, mime = core._prepare_image(raw, mime)
         d = _call_json([types.Part.from_bytes(data=raw, mime_type=mime),
                         FACTS_PROMPT + "\nProfile: " + str(profile)[:200]])
         ps = d.get("per_serving") if isinstance(d.get("per_serving"), dict) else {}
