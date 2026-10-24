@@ -72,3 +72,16 @@ def check_fssai(text_read, ingredients, confidence):
     except Exception:
         pass
     return out
+
+# LABELLENS_PATCH_FSSAI_MEDICINE
+_prev_med_check = check_fssai
+def check_fssai(text_read, ingredients, confidence):
+    out = _prev_med_check(text_read, ingredients, confidence)
+    try:
+        from fssai_categories import looks_like_medicine
+        blob = (text_read or "") + " " + " ".join(str(i) for i in (ingredients or []))
+        if out and out[0].get("rule") != "ALL" and looks_like_medicine(blob):
+            return [x for x in out if x["rule"] == "Ingredient amounts vs FSSAI limits"]
+    except Exception:
+        pass
+    return out
