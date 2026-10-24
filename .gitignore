@@ -2,3 +2,10 @@
 __pycache__/
 .venv/
 *.key
+product_cache.json
+.env
+core_backup.py
+index_old.html
+patch_app.py
+patch_extras.py
+streamlit_app.py
