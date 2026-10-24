@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#06120d">
+<title>LabelLens</title>
+<style>
+:root{--bg:#0b0618;--moss:#1c1038;--mint:#c8ff3d;--peach:#ff4fa3;--amber:#ffc94d;--red:#ff5a5f;--ink:#f6f0ff;--mut:#b3a6d6;--glass:rgba(255,255,255,.06);--line:rgba(255,255,255,.12);color-scheme:dark}
+*{box-sizing:border-box;margin:0}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{font-family:ui-rounded,"SF Pro Rounded","Avenir Next",system-ui,sans-serif;background:radial-gradient(ellipse at 50% -10%,#4a1d8f 0,var(--bg) 60%) fixed;color:var(--ink);min-height:100vh;padding:calc(env(safe-area-inset-top,0px) + 14px) 16px calc(env(safe-area-inset-bottom,0px) + 96px);line-height:1.45}
+main{max-width:560px;margin:0 auto}
+h1{font-size:2.1rem;line-height:1.1;letter-spacing:-.02em;margin:10px 0 8px}
+h2{font-size:1.15rem;margin-bottom:8px}
+p,li{color:var(--mut)}
+.card{background:var(--glass);border:1px solid var(--line);border-radius:22px;padding:16px;margin:12px 0;backdrop-filter:blur(8px)}
+.top{display:flex;align-items:center;gap:10px;font-weight:700}
+.logo{width:34px;height:34px;border-radius:12px;background:var(--mint);color:#06210f;display:grid;place-items:center;font-size:18px}
+.btn{border:0;border-radius:999px;padding:14px 20px;font:inherit;font-weight:700;cursor:pointer;background:var(--glass);color:var(--ink);border:1px solid var(--line);min-height:48px}
+.btn.hot{background:linear-gradient(135deg,var(--peach),#ff8f3a);color:#fff;border:0;box-shadow:0 8px 30px rgba(255,79,163,.4);width:100%;font-size:1.05rem}
+.btn:disabled{opacity:.5}
+.btn:focus-visible,.chip:focus-visible,.tab:focus-visible,input:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border-radius:999px;padding:10px 14px;border:1px solid var(--line);background:var(--glass);color:var(--ink);font:inherit;cursor:pointer;min-height:44px}
+.chip.on{background:var(--mint);color:#06210f;border-color:var(--mint);font-weight:700}
+input[type=text]{width:100%;margin-top:10px;padding:13px 16px;border-radius:16px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--ink);font:inherit}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stats div{background:var(--glass);border:1px solid var(--line);border-radius:16px;padding:12px 8px;text-align:center;font-weight:700;font-size:.9rem}
+.stats span{display:block;font-weight:400;font-size:.75rem;color:var(--mut)}
+.vf{position:relative;border-radius:22px;overflow:hidden;background:#000;border:1px solid var(--line);aspect-ratio:4/3;display:none}
+.vf video{width:100%;height:100%;object-fit:cover}
+.vf::after{content:"";position:absolute;inset:14%;border:2px dashed rgba(109,255,176,.7);border-radius:16px;pointer-events:none}
+.stamp{display:inline-block;font-size:2.6rem;font-weight:900;letter-spacing:.04em;padding:6px 18px;border:5px solid currentColor;border-radius:14px;transform:rotate(-4deg);animation:pop .45s cubic-bezier(.2,1.6,.4,1)}
+@keyframes pop{from{transform:scale(2.2) rotate(-12deg);opacity:0}to{transform:scale(1) rotate(-4deg);opacity:1}}
+.OK{color:var(--mint)}.CAREFUL{color:var(--amber)}.AVOID{color:var(--red)}
+.vhead{display:flex;align-items:center;gap:16px}
+.ring{--p:0;width:78px;height:78px;border-radius:50%;background:conic-gradient(currentColor calc(var(--p)*1%),rgba(255,255,255,.1) 0);display:grid;place-items:center;flex:none}
+.ring i{width:60px;height:60px;border-radius:50%;background:var(--bg);display:grid;place-items:center;font-style:normal;font-weight:800;color:var(--ink)}
+ul{padding-left:18px}li{margin:4px 0}
+.tag{display:inline-block;margin:3px 4px 3px 0;padding:6px 12px;border-radius:999px;background:var(--glass);border:1px solid var(--line);color:var(--ink);font-size:.85rem}
+pre{white-space:pre-wrap;word-break:break-word;font:inherit;font-size:.85rem;color:var(--mut);background:rgba(0,0,0,.25);padding:12px;border-radius:14px;max-height:180px;overflow:auto}
+.warn{border-color:var(--amber);color:var(--amber)}
+.err{border-color:var(--red);color:var(--red)}
+.load{display:none;text-align:center}.load b{display:block;font-size:2rem;animation:bob 1s infinite}
+@keyframes bob{50%{transform:translateY(-8px)}}
+.tabs{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:6px;padding:10px 12px calc(env(safe-area-inset-bottom,0px) + 10px);background:rgba(6,18,13,.85);backdrop-filter:blur(14px);border-top:1px solid var(--line);z-index:5}
+.tab{flex:1;max-width:120px;border:0;background:none;color:var(--mut);font:inherit;padding:8px 4px;border-radius:14px;cursor:pointer;min-height:48px}
+.tab.on{background:var(--glass);color:var(--mint);font-weight:700}
+.view{display:none}.view.on{display:block}
+.mascot{position:fixed;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 82px);z-index:4;display:flex;align-items:flex-end;gap:8px;border:0;background:none;font:inherit;color:var(--ink);cursor:pointer;max-width:80vw;text-align:left}
+.mascot em{font-style:normal;width:52px;height:52px;border-radius:50%;background:var(--mint);display:grid;place-items:center;font-size:26px;box-shadow:0 0 0 6px rgba(109,255,176,.18);flex:none}
+.mascot span{background:var(--moss);border:1px solid var(--line);border-radius:16px;padding:8px 12px;font-size:.82rem}
+.chat{max-height:46vh;overflow:auto;display:flex;flex-direction:column;gap:8px}
+.msg{padding:10px 14px;border-radius:16px;max-width:88%;white-space:pre-wrap}
+.msg.me{align-self:flex-end;background:var(--mint);color:#06210f}
+.msg.ai{background:var(--glass);border:1px solid var(--line)}
+.foot{text-align:center;font-size:.78rem;color:var(--mut);margin-top:18px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<main>
+<div class="top"><div class="logo">🔎</div>LabelLens</div>
+
+<section class="view on" id="v-scan">
+  <h1>Scan it. Know it. No cap. ✨</h1>
+  <p>Snap any label or type a product name. Blurry? We look it up online for you.</p>
+  <div class="stats" style="margin:14px 0"><div>3<span>verdicts</span></div><div>Many<span>languages</span></div><div>Open<span>AI model</span></div></div>
+
+  <div class="card">
+    <h2>Who is this for?</h2>
+    <div class="row" id="chips"></div>
+    <input type="text" id="custom" placeholder="Or type: vegan, allergic to nuts…" aria-label="Custom profile">
+  </div>
+
+  <div class="card">
+    <div class="vf" id="vf"><video id="vid" playsinline muted></video></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="cam">Open camera</button>
+      <button class="btn" id="flip" style="display:none">Flip</button>
+      <button class="btn" id="auto" style="display:none">Auto-scan: on</button>
+      <label class="btn" style="display:inline-flex;align-items:center">Upload photo<input type="file" id="file" accept="image/*" hidden></label>
+    </div>
+    <button class="btn hot" id="go" style="margin-top:12px;display:none">Scan now</button>
+    <p id="hint" style="margin-top:8px;font-size:.85rem">Hold the pack inside the dashed box. We crop, enhance and search it for you.</p>
+  </div>
+
+  <div class="card"><h2>Know the name? Skip the camera ⚡</h2>
+    <div class="row" style="flex-wrap:nowrap"><input type="text" id="nmi" placeholder="Red Bull, Maggi, Oreo…" style="margin:0" aria-label="Product name"><button class="btn" id="nm">Look up</button></div>
+  </div>
+
+  <div class="card load" id="load"><b>🔎</b>Reading the label… a few seconds.</div>
+  <div id="res"></div>
+</section>
+
+<section class="view" id="v-today">
+  <h1>Today</h1>
+  <p>Your scans on this device.</p>
+  <div class="card"><h2 id="cnt">0 scans today</h2><div id="hist"></div></div>
+</section>
+
+<section class="view" id="v-ai">
+  <h1>Ask Lensy</h1>
+  <p>Ask about ingredients, labels or what to look for.</p>
+  <div class="card"><div class="chat" id="chat"><div class="msg ai">Hi! I’m Lensy. Ask me about any ingredient.</div></div>
+    <div class="row" style="margin-top:10px;flex-wrap:nowrap"><input type="text" id="q" placeholder="Is E211 safe for kids?" style="margin:0" aria-label="Ask a question"><button class="btn" id="ask">Ask</button></div>
+  </div>
+</section>
+
+<section class="view" id="v-about">
+  <h1>How it works</h1>
+  <div class="card"><h2>1. Snap</h2><p>Take a photo of the label, or upload one.</p></div>
+  <div class="card"><h2>2. Read</h2><p>An open AI model (Gemma 4) reads the text, in the language printed.</p></div>
+  <div class="card"><h2>3. Check</h2><p>Our code checks the answer. Blurry or unsure photos never get an OK. You get a retake request.</p></div>
+  <div class="card"><h2>Honest limits</h2><ul><li>It can be wrong. Always check the real label.</li><li>It never gives a medicine or pesticide dose.</li><li>It only compares claims with the text printed on the pack.</li><li>Photos are sent to an AI service to be read.</li></ul></div>
+  <div class="card"><h2>Open source</h2><p>MIT license. Code on GitHub: SMIT20074/LabelLens.</p></div>
+</section>
+
+<p class="foot">Informational only. Check the label and ask a doctor or pharmacist.</p>
+</main>
+
+<button class="mascot" id="mas" aria-label="Ask Lensy"><em>🐱</em><span id="tip">Tap me to ask about an ingredient</span></button>
+
+<nav class="tabs" id="tabs">
+  <button class="tab on" data-v="scan">Scan</button>
+  <button class="tab" data-v="today">Today</button>
+  <button class="tab" data-v="ai">Ask AI</button>
+  <button class="tab" data-v="about">About</button>
+</nav>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=t=>String(t==null?"":t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let profile="adult",stream=null,facing="environment",busy=false;
+
+function show(v){
+  document.querySelectorAll(".view").forEach(e=>e.classList.toggle("on",e.id==="v-"+v));
+  document.querySelectorAll(".tab").forEach(e=>e.classList.toggle("on",e.dataset.v===v));
+  if(v==="today")drawHist();
+  if(v!=="scan")stopCam();else if(!stream)openCam();
+  window.scrollTo(0,0);
+}
+$("#tabs").onclick=e=>{const b=e.target.closest(".tab");if(b)show(b.dataset.v)};
+$("#mas").onclick=()=>show("ai");
+const tips=["Tap me to ask about an ingredient","Flat labels scan best","Blurry photo? I’ll ask for a retake","Never trust one scan alone"];
+let ti=0;setInterval(()=>{ti=(ti+1)%tips.length;$("#tip").textContent=tips[ti]},6000);
+
+const profs=[["adult","Adult"],["a child age 5","Child"],["pregnant","Pregnant"],["allergic to peanuts","Peanut allergy"],["diabetic","Diabetic"],["elderly","Elderly"]];
+profs.forEach(([v,l],i)=>{const b=document.createElement("button");b.className="chip"+(i===0?" on":"");b.textContent=l;b.onclick=()=>{profile=v;$("#custom").value="";document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));b.classList.add("on")};$("#chips").appendChild(b)});
+$("#custom").oninput=e=>{const t=e.target.value.trim();if(t){profile=t;document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"))}};
+
+async function openCam(){
+  try{
+    if(stream)stream.getTracks().forEach(t=>t.stop());
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:1920}},audio:false});
+    $("#vid").srcObject=stream;await $("#vid").play();
+    $("#vf").style.display="block";$("#go").style.display="block";$("#flip").style.display="inline-block";$("#cam").textContent="Restart camera";
+    if(det){$("#auto").style.display="inline-block";$("#hint").textContent="Point at the barcode of a food pack, can or bottle.";loop()}else{$("#hint").textContent="Auto-scan needs Chrome with barcode support here. Press Scan now."}
+  }catch(e){$("#hint").textContent="Camera is blocked or needs https. Use Upload photo instead."}
+}
+let autoOn=true,det=null,seen=0,lastFire=0,loopT=null,lastCode="",doneCode="";
+try{if("BarcodeDetector" in window)det=new BarcodeDetector({formats:["ean_13","ean_8","upc_a"]})}catch(e){try{det=new BarcodeDetector()}catch(e2){det=null}}
+function okEan(s){if(!/^\d+$/.test(s)||![8,12,13].includes(s.length))return false;const d=s.split("").map(Number),c=d.pop();let t=0;d.reverse().forEach((x,i)=>t+=x*(i%2===0?3:1));return (10-t%10)%10===c}
+function noProduct(r){return !r.error&&!(r.text_read&&String(r.text_read).trim().length>=8)&&!(r.ingredients&&r.ingredients.length)}
+function stopCam(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}clearInterval(loopT);$("#vf").style.display="none";$("#go").style.display="none"}
+function loop(){
+  clearInterval(loopT);
+  if(!det)return;
+  loopT=setInterval(async()=>{
+    const v=$("#vid");
+    if(!autoOn||busy||!v.videoWidth||Date.now()-lastFire<8000){seen=0;return}
+    try{
+      const f=await det.detect(v);
+      const hit=f.map(b=>b.rawValue).find(okEan);
+      if(!hit){seen=0;lastCode="";doneCode="";$("#hint").textContent="Point at the barcode of a food pack, can or bottle.";return}
+      if(hit===doneCode)return;
+      seen=(hit===lastCode)?seen+1:1;lastCode=hit;
+      if(seen<2){$("#hint").textContent="Barcode spotted. Hold steady…";return}
+      seen=0;lastFire=Date.now();doneCode=hit;$("#hint").textContent="Pack found. Searching…";byCode(hit)
+    }catch(e){}
+  },400);
+}
+$("#auto").onclick=()=>{autoOn=!autoOn;$("#auto").textContent="Auto-scan: "+(autoOn?"on":"off")};
+$("#cam").onclick=openCam;
+window.addEventListener("load",()=>{openCam()});
+$("#flip").onclick=()=>{facing=facing==="environment"?"user":"environment";openCam()};
+
+function shrink(src,w,h){
+  const m=1280,k=Math.min(1,m/Math.max(w,h));
+  const c=document.createElement("canvas");c.width=Math.round(w*k);c.height=Math.round(h*k);
+  c.getContext("2d").drawImage(src,0,0,c.width,c.height);
+  return c.toDataURL("image/jpeg",.8).split(",")[1];
+}
+$("#go").onclick=()=>{const v=$("#vid");if(!v.videoWidth){$("#hint").textContent="Camera not ready yet. Wait a second.";return}send(process(v,v.videoWidth,v.videoHeight,true))};
+$("#file").onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const img=new Image();img.onload=()=>send(process(img,img.naturalWidth,img.naturalHeight,false));
+  img.onerror=()=>{$("#res").innerHTML='<div class="card err">That file could not be opened as a photo.</div>'};
+  img.src=URL.createObjectURL(f);e.target.value="";
+};
+
+/* ---- crop + enhance ---- */
+function enhance(c){
+  const g=c.getContext("2d"),W=c.width,H=c.height,id=g.getImageData(0,0,W,H),d=id.data,n=W*H,hist=new Uint32Array(256);
+  for(let i=0;i<d.length;i+=4)hist[(d[i]*.3+d[i+1]*.59+d[i+2]*.11)|0]++;
+  let lo=0,hi=255,a=0;
+  for(let i=0;i<256;i++){a+=hist[i];if(a>n*.02){lo=i;break}}
+  a=0;for(let i=255;i>=0;i--){a+=hist[i];if(a>n*.02){hi=i;break}}
+  const k=hi>lo+20?255/(hi-lo):1;
+  for(let i=0;i<d.length;i+=4){for(let j=0;j<3;j++){const v=(d[i+j]-lo)*k;d[i+j]=v<0?0:v>255?255:v}}
+  const o=new Uint8ClampedArray(d);
+  for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const p=(y*W+x)*4;
+    for(let j=0;j<3;j++){const v=d[p+j]+.7*(4*d[p+j]-d[p+j-4]-d[p+j+4]-d[p+j-W*4]-d[p+j+W*4]);o[p+j]=v<0?0:v>255?255:v}}
+  g.putImageData(new ImageData(o,W,H),0,0);
+}
+function process(src,w,h,crop){
+  const sx=crop?w*.14:0,sy=crop?h*.14:0,sw=crop?w*.72:w,sh=crop?h*.72:h;
+  const k=Math.min(1,1024/Math.max(sw,sh)),c=document.createElement("canvas");
+  c.width=Math.round(sw*k);c.height=Math.round(sh*k);
+  c.getContext("2d").drawImage(src,sx,sy,sw,sh,0,0,c.width,c.height);
+  enhance(c);
+  const u=c.toDataURL("image/jpeg",.82);
+  return {b64:u.split(",")[1],url:u};
+}
+
+function lookupHtml(d){
+  const p=d.product||{},v=["OK","CAREFUL","AVOID"].includes(d.verdict)?d.verdict:"CAREFUL";
+  let h='<div class="card">'+(p.image?'<img src="'+esc(p.image)+'" alt="" style="float:right;width:64px;border-radius:10px;margin-left:10px">':"")+'<h2>🌐 Found online: '+esc(p.brand?p.brand+" ":"")+esc(p.name||d.guess)+"</h2><p>Matched on "+esc(d.source)+". Not read from your pack, so check the real label.</p>";
+  h+='<div class="stamp '+v+'" style="font-size:1.8rem;margin:12px 0">'+v+"</div>"+list(d.reasons);
+  h+=Object.entries(p.per_100g||{}).map(([k,x])=>'<span class="tag">'+esc(k.replace(/_/g," "))+" "+esc(x)+" /100g</span>").join("");
+  if(p.nutriscore)h+='<span class="tag">Nutri-Score '+esc(p.nutriscore)+"</span>";
+  (p.additives||[]).forEach(a=>{h+='<span class="tag">'+esc(a)+"</span>"});
+  if(p.ingredients_text)h+='<h2 style="margin-top:12px">Ingredients</h2><pre>'+esc(p.ingredients_text)+"</pre>";
+  if(d.suggestions&&d.suggestions.length)h+='<h2 style="margin-top:12px">💡 Suggestions</h2>'+list(d.suggestions);
+  return h+'<p style="margin-top:8px;font-size:.8rem">'+(d.cached?"⚡ From saved data":"Fresh lookup")+" · "+esc(d.ms)+" ms</p></div>";
+}
+const post=(u,o,ms)=>{const c=new AbortController(),t=setTimeout(()=>c.abort(),ms||25000);return fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(o),signal:c.signal}).then(r=>r.json()).finally(()=>clearTimeout(t))};
+
+/* photo -> crop -> enhance -> read label + search online, both at once */
+async function send(p){
+  if(busy)return;busy=true;$("#go").disabled=true;$("#load").style.display="block";
+  $("#res").innerHTML='<div class="card"><h2>📸 What we sent</h2><img src="'+p.url+'" alt="Cropped and enhanced product photo" style="width:100%;max-height:220px;object-fit:contain;border-radius:14px"><p id="stp" style="margin-top:8px">Cropped and enhanced. Reading the label and searching online…</p></div><div id="r2"></div><div id="r1"></div>';
+  const t0=performance.now(),base={image:p.b64,mime:"image/jpeg",profile:profile};
+  let scan=null,look=null;
+  const A=post("/lookup",Object.assign({name:""},base)).then(d=>{look=d;if(d&&!d.error){$("#r2").innerHTML=lookupHtml(d)}}).catch(()=>{});
+  const B=post("/scan",base).then(d=>{scan=d;if(d&&(d.error||!noProduct(d)))render(d)}).catch(()=>{$("#r1").innerHTML='<div class="card err">Took too long or the server is unreachable. Try again.</div>'});
+  await Promise.all([A,B]);
+  const ok=scan&&!scan.error&&!noProduct(scan),lk=look&&!look.error;
+  if(ok)save(scan);
+  else if(lk){try{const a=getH(),pr=look.product||{};a.unshift({t:Date.now(),v:look.verdict||"CAREFUL",k:pr.name||look.guess||"product",p:profile});localStorage.setItem("ll_hist",JSON.stringify(a.slice(0,50)))}catch(e){}}
+  if(scan&&!scan.error&&noProduct(scan)&&!lk)$("#r1").innerHTML='<div class="card warn"><h2>No product found</h2><p>Point the camera at a food pack, can, bottle or medicine strip. People and other objects are ignored.</p></div>';
+  if(look&&look.error&&!ok)$("#r2").innerHTML='<div class="card warn">Online lookup failed. Try again in a moment.</div>';
+  const st=$("#stp");if(st)st.textContent="Done in "+((performance.now()-t0)/1000).toFixed(1)+" s";
+  busy=false;$("#go").disabled=false;$("#load").style.display="none";
+}
+
+async function byCode(code){
+  if(busy)return;busy=true;$("#go").disabled=true;$("#load").style.display="block";$("#res").innerHTML="";
+  const t0=performance.now();let d=null;
+  try{d=await post("/barcode",{code:code,profile:profile},6000)}catch(e){}
+  if(d&&!d.error){
+    const p=d.product||{};
+    $("#res").innerHTML='<div class="card"><p>⚡ Barcode '+esc(code)+" matched in "+((performance.now()-t0)/1000).toFixed(1)+' s</p></div>'+lookupHtml(d)+'<button class="btn hot" id="ai" style="margin-top:4px">Also read this pack with AI (slower)</button>';
+    $("#ai").onclick=()=>{$("#go").click()};
+    try{const a=getH();a.unshift({t:Date.now(),v:d.verdict||"CAREFUL",k:p.name||code,p:profile});localStorage.setItem("ll_hist",JSON.stringify(a.slice(0,50)))}catch(e){}
+    $("#res").scrollIntoView({behavior:"smooth",block:"start"});
+    busy=false;$("#go").disabled=false;$("#load").style.display="none";return;
+  }
+  busy=false;$("#go").disabled=false;$("#hint").textContent="Barcode not in the database. Reading the pack with AI…";$("#go").click();
+}
+
+async function look(b64,name){
+  $("#load").style.display="block";
+  try{
+    const d=await post("/lookup",{image:b64||"",mime:"image/jpeg",profile:profile,name:name||""});
+    if(d.error){$("#res").insertAdjacentHTML("beforeend",'<div class="card warn">'+esc(d.error)+"</div>")}
+    else{
+      $("#res").insertAdjacentHTML("beforeend",lookupHtml(d));
+      try{const a=getH(),p=d.product||{};a.unshift({t:Date.now(),v:d.verdict||"CAREFUL",k:p.name||d.guess,p:profile});localStorage.setItem("ll_hist",JSON.stringify(a.slice(0,50)))}catch(e){}
+    }
+  }catch(e){$("#res").insertAdjacentHTML("beforeend",'<div class="card err">Could not reach the server for the online lookup.</div>')}
+  $("#load").style.display="none";
+  $("#res").lastElementChild&&$("#res").lastElementChild.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+$("#nm").onclick=()=>{const n=$("#nmi").value.trim();if(n){$("#res").innerHTML="";look("",n)}};
+$("#nmi").onkeydown=e=>{if(e.key==="Enter")$("#nm").click()};
+
+function list(a){return Array.isArray(a)&&a.length?"<ul>"+a.map(x=>"<li>"+esc(x)+"</li>").join("")+"</ul>":""}
+function factsHtml(f){
+  if(!f||typeof f!=="object")return "";
+  const out=[];
+  for(const [k,v] of Object.entries(f)){
+    let s="";
+    if(v==null||v==="")continue;
+    if(typeof v==="object"){s=Object.entries(v).filter(([a,x])=>x!=null&&typeof x!=="object").map(([a,x])=>a.replace(/_/g," ")+" "+x).join(", ")}else s=String(v);
+    if(s)out.push('<span class="tag">'+esc(k.replace(/_/g," "))+": "+esc(s)+"</span>");
+    if(out.length>=10)break;
+  }
+  return out.length?'<div class="card"><h2>Nutrition facts</h2>'+out.join("")+"</div>":"";
+}
+function render(r){
+  let v=["OK","CAREFUL","AVOID"].includes(r.verdict)?r.verdict:"CAREFUL";
+  const bad=r.retake_photo||r.error;
+  if(bad&&v==="OK")v="CAREFUL";
+  const p=Math.round((Number(r.confidence)||0)*100);
+  let h="";
+  if(r.error)h+='<div class="card err">'+esc(r.error)+"</div>";
+  if(r.retake_photo)h+='<div class="card warn">Please retake the photo. Hold steady, fill the frame with the label, use good light, avoid glare.</div>';
+  h+='<div class="card '+v+'"><div class="vhead"><div class="ring" style="--p:'+p+'"><i>'+p+'%</i></div><div><div class="stamp">'+v+'</div><p style="margin-top:8px">For: '+esc(profile)+". The ring shows how well the label was read.</p></div></div></div>";
+  if(r.reasons&&r.reasons.length)h+='<div class="card"><h2>Why this verdict</h2>'+list(r.reasons)+"</div>";
+  if(r.warnings&&r.warnings.length)h+='<div class="card warn"><h2>Warnings</h2>'+list(r.warnings)+"</div>";
+  h+=factsHtml(r.facts);
+  if(r.ingredients&&r.ingredients.length)h+='<div class="card"><h2>Ingredients</h2>'+r.ingredients.map(x=>'<span class="tag">'+esc(x)+"</span>").join("")+"</div>";
+  h+='<div class="card"><h2>Exact text the AI read</h2><pre>'+esc(r.text_read||"(nothing was read)")+"</pre></div>";
+  const T=$("#r1")||$("#res");T.innerHTML=h;
+}
+
+function getH(){try{return JSON.parse(localStorage.getItem("ll_hist")||"[]")}catch(e){return[]}}
+function save(r){
+  try{const a=getH();a.unshift({t:Date.now(),v:r.retake_photo&&r.verdict==="OK"?"CAREFUL":(r.verdict||"CAREFUL"),k:r.label_type||"label",p:profile});localStorage.setItem("ll_hist",JSON.stringify(a.slice(0,50)))}catch(e){}
+}
+function drawHist(){
+  const a=getH(),day=new Date().toDateString(),n=a.filter(x=>new Date(x.t).toDateString()===day).length;
+  $("#cnt").textContent=n+(n===1?" scan today":" scans today");
+  $("#hist").innerHTML=a.length?a.map(x=>'<div class="row" style="justify-content:space-between;padding:8px 0;border-top:1px solid var(--line)"><span>'+esc(x.k)+" · "+esc(x.p)+'</span><b class="'+esc(x.v)+'">'+esc(x.v)+"</b></div>").join(""):"<p>No scans yet. Scan a label to start.</p>";
+}
+
+async function ask(){
+  const q=$("#q").value.trim();if(!q)return;
+  const c=$("#chat");c.insertAdjacentHTML("beforeend",'<div class="msg me">'+esc(q)+"</div>");$("#q").value="";
+  const w=document.createElement("div");w.className="msg ai";w.textContent="Thinking…";c.appendChild(w);c.scrollTop=c.scrollHeight;
+  try{
+    const r=await fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:q}],context:"Profile: "+profile})});
+    const d=await r.json();
+    let t=d.reply||d.text||d.answer||d.message||d.response||d.error||"";
+    if(!t)t=typeof d==="string"?d:"Lensy could not answer. Try again.";
+    w.textContent=t;
+  }catch(e){w.textContent="Could not reach the server. Try again."}
+  c.scrollTop=c.scrollHeight;
+}
+$("#ask").onclick=ask;
+$("#q").onkeydown=e=>{if(e.key==="Enter")ask()};
+</script>
+</body>
+</html>
