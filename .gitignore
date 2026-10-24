@@ -30,3 +30,8 @@ patch_app.py
 patch_extras.py
 patch_bodycheck.py
 streamlit_app.py
+app.log
+.DS_Store
+__pycache__/
+*.pyc
+.env
