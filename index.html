@@ -177,7 +177,7 @@ function loop(){
       if(hit===doneCode)return;
       seen=(hit===lastCode)?seen+1:1;lastCode=hit;
       if(seen<2){$("#hint").textContent="Barcode spotted. Hold steady…";return}
-      seen=0;lastFire=Date.now();doneCode=hit;$("#hint").textContent="Pack found. Scanning…";$("#go").click()
+      seen=0;lastFire=Date.now();doneCode=hit;$("#hint").textContent="Pack found. Searching…";byCode(hit)
     }catch(e){}
   },400);
 }
@@ -226,15 +226,16 @@ function process(src,w,h,crop){
 
 function lookupHtml(d){
   const p=d.product||{},v=["OK","CAREFUL","AVOID"].includes(d.verdict)?d.verdict:"CAREFUL";
-  let h='<div class="card"><h2>🌐 Found online: '+esc(p.brand?p.brand+" ":"")+esc(p.name||d.guess)+"</h2><p>Matched by name on "+esc(d.source)+". Not read from your pack, so check the real label.</p>";
+  let h='<div class="card">'+(p.image?'<img src="'+esc(p.image)+'" alt="" style="float:right;width:64px;border-radius:10px;margin-left:10px">':"")+'<h2>🌐 Found online: '+esc(p.brand?p.brand+" ":"")+esc(p.name||d.guess)+"</h2><p>Matched on "+esc(d.source)+". Not read from your pack, so check the real label.</p>";
   h+='<div class="stamp '+v+'" style="font-size:1.8rem;margin:12px 0">'+v+"</div>"+list(d.reasons);
   h+=Object.entries(p.per_100g||{}).map(([k,x])=>'<span class="tag">'+esc(k.replace(/_/g," "))+" "+esc(x)+" /100g</span>").join("");
   if(p.nutriscore)h+='<span class="tag">Nutri-Score '+esc(p.nutriscore)+"</span>";
   (p.additives||[]).forEach(a=>{h+='<span class="tag">'+esc(a)+"</span>"});
   if(p.ingredients_text)h+='<h2 style="margin-top:12px">Ingredients</h2><pre>'+esc(p.ingredients_text)+"</pre>";
+  if(d.suggestions&&d.suggestions.length)h+='<h2 style="margin-top:12px">💡 Suggestions</h2>'+list(d.suggestions);
   return h+'<p style="margin-top:8px;font-size:.8rem">'+(d.cached?"⚡ From saved data":"Fresh lookup")+" · "+esc(d.ms)+" ms</p></div>";
 }
-const post=(u,o)=>fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(o)}).then(r=>r.json());
+const post=(u,o,ms)=>{const c=new AbortController(),t=setTimeout(()=>c.abort(),ms||25000);return fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(o),signal:c.signal}).then(r=>r.json()).finally(()=>clearTimeout(t))};
 
 /* photo -> crop -> enhance -> read label + search online, both at once */
 async function send(p){
@@ -243,7 +244,7 @@ async function send(p){
   const t0=performance.now(),base={image:p.b64,mime:"image/jpeg",profile:profile};
   let scan=null,look=null;
   const A=post("/lookup",Object.assign({name:""},base)).then(d=>{look=d;if(d&&!d.error){$("#r2").innerHTML=lookupHtml(d)}}).catch(()=>{});
-  const B=post("/scan",base).then(d=>{scan=d;if(d&&(d.error||!noProduct(d)))render(d)}).catch(()=>{$("#r1").innerHTML='<div class="card err">Could not reach the server. Check your connection and try again.</div>'});
+  const B=post("/scan",base).then(d=>{scan=d;if(d&&(d.error||!noProduct(d)))render(d)}).catch(()=>{$("#r1").innerHTML='<div class="card err">Took too long or the server is unreachable. Try again.</div>'});
   await Promise.all([A,B]);
   const ok=scan&&!scan.error&&!noProduct(scan),lk=look&&!look.error;
   if(ok)save(scan);
@@ -252,6 +253,21 @@ async function send(p){
   if(look&&look.error&&!ok)$("#r2").innerHTML='<div class="card warn">Online lookup failed. Try again in a moment.</div>';
   const st=$("#stp");if(st)st.textContent="Done in "+((performance.now()-t0)/1000).toFixed(1)+" s";
   busy=false;$("#go").disabled=false;$("#load").style.display="none";
+}
+
+async function byCode(code){
+  if(busy)return;busy=true;$("#go").disabled=true;$("#load").style.display="block";$("#res").innerHTML="";
+  const t0=performance.now();let d=null;
+  try{d=await post("/barcode",{code:code,profile:profile},6000)}catch(e){}
+  if(d&&!d.error){
+    const p=d.product||{};
+    $("#res").innerHTML='<div class="card"><p>⚡ Barcode '+esc(code)+" matched in "+((performance.now()-t0)/1000).toFixed(1)+' s</p></div>'+lookupHtml(d)+'<button class="btn hot" id="ai" style="margin-top:4px">Also read this pack with AI (slower)</button>';
+    $("#ai").onclick=()=>{$("#go").click()};
+    try{const a=getH();a.unshift({t:Date.now(),v:d.verdict||"CAREFUL",k:p.name||code,p:profile});localStorage.setItem("ll_hist",JSON.stringify(a.slice(0,50)))}catch(e){}
+    $("#res").scrollIntoView({behavior:"smooth",block:"start"});
+    busy=false;$("#go").disabled=false;$("#load").style.display="none";return;
+  }
+  busy=false;$("#go").disabled=false;$("#hint").textContent="Barcode not in the database. Reading the pack with AI…";$("#go").click();
 }
 
 async function look(b64,name){

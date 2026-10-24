@@ -666,7 +666,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/save_sample" and self.client_address[0] not in ("127.0.0.1", "::1"):
             self._json(403, {"error": "Not allowed."})
             return
-        if path in ("/scan", "/analyze", "/chat", "/lookup") and not _rate_ok(ip):
+        if path in ("/scan", "/analyze", "/chat", "/lookup", "/barcode") and not _rate_ok(ip):
             self._json(429, {"error": "Too many scans. Please wait a few minutes."})
             return
         try:
@@ -706,6 +706,9 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/lookup":
             import lookup as _lk
             self._json(200, _lk.lookup(body))
+        elif path == "/barcode":
+            import barcode_lookup as _bc
+            self._json(200, _bc.lookup(body))
         elif path == "/chat":
             self._json(200, extras.chat(body.get("messages"), body.get("context")))
         elif path == "/save_sample":
