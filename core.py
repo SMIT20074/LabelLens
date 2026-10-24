@@ -16,7 +16,7 @@ import re
 MODEL_NAME = "gemma-4-26b-a4b-it"
 
 MAX_SIDE = 1600        # shrink big phone photos: faster + cheaper
-TIMEOUT_MS = 60_000    # give up on a hung request after 60 s
+TIMEOUT_MS = 30000
 ATTEMPTS = 2           # 1 try + 1 retry (bad JSON or network blip)
 MIN_CONFIDENCE = 0.6   # below this we ask for a new photo
 
