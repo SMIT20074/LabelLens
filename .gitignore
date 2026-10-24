@@ -20,3 +20,13 @@ patch_app.py
 patch_extras.py
 patch_bodycheck.py
 streamlit_app.py
+.env
+app.log
+core_backup.py
+index_old.html
+index_backup_before_polish.html
+index_backup_before_animation.html
+patch_app.py
+patch_extras.py
+patch_bodycheck.py
+streamlit_app.py
