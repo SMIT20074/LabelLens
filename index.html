@@ -83,7 +83,7 @@ pre{white-space:pre-wrap;word-break:break-word;font:inherit;font-size:.85rem;col
       <label class="btn" style="display:inline-flex;align-items:center">Upload photo<input type="file" id="file" accept="image/*" hidden></label>
     </div>
     <button class="btn hot" id="go" style="margin-top:12px;display:none">Scan now</button>
-    <p id="hint" style="margin-top:8px;font-size:.85rem">Tip: flat labels with good light read best. Curved cans blur.</p>
+    <p id="hint" style="margin-top:8px;font-size:.85rem">Hold the pack inside the dashed box. We crop, enhance and search it for you.</p>
   </div>
 
   <div class="card"><h2>Know the name? Skip the camera ⚡</h2>
@@ -138,6 +138,7 @@ function show(v){
   document.querySelectorAll(".view").forEach(e=>e.classList.toggle("on",e.id==="v-"+v));
   document.querySelectorAll(".tab").forEach(e=>e.classList.toggle("on",e.dataset.v===v));
   if(v==="today")drawHist();
+  if(v!=="scan")stopCam();else if(!stream)openCam();
   window.scrollTo(0,0);
 }
 $("#tabs").onclick=e=>{const b=e.target.closest(".tab");if(b)show(b.dataset.v)};
@@ -155,11 +156,14 @@ async function openCam(){
     stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:1920}},audio:false});
     $("#vid").srcObject=stream;await $("#vid").play();
     $("#vf").style.display="block";$("#go").style.display="block";$("#flip").style.display="inline-block";$("#cam").textContent="Restart camera";
-    if(det){$("#auto").style.display="inline-block";$("#hint").textContent="Show the barcode to auto-scan, or press Scan now.";loop()}
+    if(det){$("#auto").style.display="inline-block";$("#hint").textContent="Point at the barcode of a food pack, can or bottle.";loop()}else{$("#hint").textContent="Auto-scan needs Chrome with barcode support here. Press Scan now."}
   }catch(e){$("#hint").textContent="Camera is blocked or needs https. Use Upload photo instead."}
 }
-let autoOn=true,det=null,seen=0,lastFire=0,loopT=null;
-try{if("BarcodeDetector" in window)det=new BarcodeDetector()}catch(e){det=null}
+let autoOn=true,det=null,seen=0,lastFire=0,loopT=null,lastCode="",doneCode="";
+try{if("BarcodeDetector" in window)det=new BarcodeDetector({formats:["ean_13","ean_8","upc_a"]})}catch(e){try{det=new BarcodeDetector()}catch(e2){det=null}}
+function okEan(s){if(!/^\d+$/.test(s)||![8,12,13].includes(s.length))return false;const d=s.split("").map(Number),c=d.pop();let t=0;d.reverse().forEach((x,i)=>t+=x*(i%2===0?3:1));return (10-t%10)%10===c}
+function noProduct(r){return !r.error&&!(r.text_read&&String(r.text_read).trim().length>=8)&&!(r.ingredients&&r.ingredients.length)}
+function stopCam(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}clearInterval(loopT);$("#vf").style.display="none";$("#go").style.display="none"}
 function loop(){
   clearInterval(loopT);
   if(!det)return;
@@ -168,59 +172,96 @@ function loop(){
     if(!autoOn||busy||!v.videoWidth||Date.now()-lastFire<8000){seen=0;return}
     try{
       const f=await det.detect(v);
-      seen=f.length?seen+1:0;
-      if(seen>=2){seen=0;lastFire=Date.now();$("#hint").textContent="Barcode found. Scanning…";$("#go").click()}
+      const hit=f.map(b=>b.rawValue).find(okEan);
+      if(!hit){seen=0;lastCode="";doneCode="";$("#hint").textContent="Point at the barcode of a food pack, can or bottle.";return}
+      if(hit===doneCode)return;
+      seen=(hit===lastCode)?seen+1:1;lastCode=hit;
+      if(seen<2){$("#hint").textContent="Barcode spotted. Hold steady…";return}
+      seen=0;lastFire=Date.now();doneCode=hit;$("#hint").textContent="Pack found. Scanning…";$("#go").click()
     }catch(e){}
   },400);
 }
 $("#auto").onclick=()=>{autoOn=!autoOn;$("#auto").textContent="Auto-scan: "+(autoOn?"on":"off")};
 $("#cam").onclick=openCam;
+window.addEventListener("load",()=>{openCam()});
 $("#flip").onclick=()=>{facing=facing==="environment"?"user":"environment";openCam()};
 
 function shrink(src,w,h){
-  const m=1024,k=Math.min(1,m/Math.max(w,h));
+  const m=1280,k=Math.min(1,m/Math.max(w,h));
   const c=document.createElement("canvas");c.width=Math.round(w*k);c.height=Math.round(h*k);
   c.getContext("2d").drawImage(src,0,0,c.width,c.height);
   return c.toDataURL("image/jpeg",.8).split(",")[1];
 }
-$("#go").onclick=()=>{const v=$("#vid");if(!v.videoWidth){$("#hint").textContent="Camera not ready yet. Wait a second.";return}send(shrink(v,v.videoWidth,v.videoHeight))};
+$("#go").onclick=()=>{const v=$("#vid");if(!v.videoWidth){$("#hint").textContent="Camera not ready yet. Wait a second.";return}send(process(v,v.videoWidth,v.videoHeight,true))};
 $("#file").onchange=e=>{
   const f=e.target.files[0];if(!f)return;
-  const img=new Image();img.onload=()=>send(shrink(img,img.naturalWidth,img.naturalHeight));
+  const img=new Image();img.onload=()=>send(process(img,img.naturalWidth,img.naturalHeight,false));
   img.onerror=()=>{$("#res").innerHTML='<div class="card err">That file could not be opened as a photo.</div>'};
   img.src=URL.createObjectURL(f);e.target.value="";
 };
 
-async function send(b64){
-  if(busy)return;busy=true;$("#go").disabled=true;$("#load").style.display="block";$("#res").innerHTML="";
-  try{
-    const r=await fetch("/scan",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({image:b64,mime:"image/jpeg",profile:profile})});
-    const d=await r.json();
-    if(!r.ok&&d.error){$("#res").innerHTML='<div class="card err">'+esc(d.error)+'</div>'}else{
-      render(d);save(d);
-      if(d.retake_photo||d.error||(Number(d.confidence)||0)<0.6){busy=false;$("#go").disabled=false;look(b64,"");return}
-    }
-  }catch(e){$("#res").innerHTML='<div class="card err">Could not reach the server. Check your connection and try again.</div>'}
+/* ---- crop + enhance ---- */
+function enhance(c){
+  const g=c.getContext("2d"),W=c.width,H=c.height,id=g.getImageData(0,0,W,H),d=id.data,n=W*H,hist=new Uint32Array(256);
+  for(let i=0;i<d.length;i+=4)hist[(d[i]*.3+d[i+1]*.59+d[i+2]*.11)|0]++;
+  let lo=0,hi=255,a=0;
+  for(let i=0;i<256;i++){a+=hist[i];if(a>n*.02){lo=i;break}}
+  a=0;for(let i=255;i>=0;i--){a+=hist[i];if(a>n*.02){hi=i;break}}
+  const k=hi>lo+20?255/(hi-lo):1;
+  for(let i=0;i<d.length;i+=4){for(let j=0;j<3;j++){const v=(d[i+j]-lo)*k;d[i+j]=v<0?0:v>255?255:v}}
+  const o=new Uint8ClampedArray(d);
+  for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const p=(y*W+x)*4;
+    for(let j=0;j<3;j++){const v=d[p+j]+.7*(4*d[p+j]-d[p+j-4]-d[p+j+4]-d[p+j-W*4]-d[p+j+W*4]);o[p+j]=v<0?0:v>255?255:v}}
+  g.putImageData(new ImageData(o,W,H),0,0);
+}
+function process(src,w,h,crop){
+  const sx=crop?w*.14:0,sy=crop?h*.14:0,sw=crop?w*.72:w,sh=crop?h*.72:h;
+  const k=Math.min(1,1024/Math.max(sw,sh)),c=document.createElement("canvas");
+  c.width=Math.round(sw*k);c.height=Math.round(sh*k);
+  c.getContext("2d").drawImage(src,sx,sy,sw,sh,0,0,c.width,c.height);
+  enhance(c);
+  const u=c.toDataURL("image/jpeg",.82);
+  return {b64:u.split(",")[1],url:u};
+}
+
+function lookupHtml(d){
+  const p=d.product||{},v=["OK","CAREFUL","AVOID"].includes(d.verdict)?d.verdict:"CAREFUL";
+  let h='<div class="card"><h2>🌐 Found online: '+esc(p.brand?p.brand+" ":"")+esc(p.name||d.guess)+"</h2><p>Matched by name on "+esc(d.source)+". Not read from your pack, so check the real label.</p>";
+  h+='<div class="stamp '+v+'" style="font-size:1.8rem;margin:12px 0">'+v+"</div>"+list(d.reasons);
+  h+=Object.entries(p.per_100g||{}).map(([k,x])=>'<span class="tag">'+esc(k.replace(/_/g," "))+" "+esc(x)+" /100g</span>").join("");
+  if(p.nutriscore)h+='<span class="tag">Nutri-Score '+esc(p.nutriscore)+"</span>";
+  (p.additives||[]).forEach(a=>{h+='<span class="tag">'+esc(a)+"</span>"});
+  if(p.ingredients_text)h+='<h2 style="margin-top:12px">Ingredients</h2><pre>'+esc(p.ingredients_text)+"</pre>";
+  return h+'<p style="margin-top:8px;font-size:.8rem">'+(d.cached?"⚡ From saved data":"Fresh lookup")+" · "+esc(d.ms)+" ms</p></div>";
+}
+const post=(u,o)=>fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(o)}).then(r=>r.json());
+
+/* photo -> crop -> enhance -> read label + search online, both at once */
+async function send(p){
+  if(busy)return;busy=true;$("#go").disabled=true;$("#load").style.display="block";
+  $("#res").innerHTML='<div class="card"><h2>📸 What we sent</h2><img src="'+p.url+'" alt="Cropped and enhanced product photo" style="width:100%;max-height:220px;object-fit:contain;border-radius:14px"><p id="stp" style="margin-top:8px">Cropped and enhanced. Reading the label and searching online…</p></div><div id="r2"></div><div id="r1"></div>';
+  const t0=performance.now(),base={image:p.b64,mime:"image/jpeg",profile:profile};
+  let scan=null,look=null;
+  const A=post("/lookup",Object.assign({name:""},base)).then(d=>{look=d;if(d&&!d.error){$("#r2").innerHTML=lookupHtml(d)}}).catch(()=>{});
+  const B=post("/scan",base).then(d=>{scan=d;if(d&&(d.error||!noProduct(d)))render(d)}).catch(()=>{$("#r1").innerHTML='<div class="card err">Could not reach the server. Check your connection and try again.</div>'});
+  await Promise.all([A,B]);
+  const ok=scan&&!scan.error&&!noProduct(scan),lk=look&&!look.error;
+  if(ok)save(scan);
+  else if(lk){try{const a=getH(),pr=look.product||{};a.unshift({t:Date.now(),v:look.verdict||"CAREFUL",k:pr.name||look.guess||"product",p:profile});localStorage.setItem("ll_hist",JSON.stringify(a.slice(0,50)))}catch(e){}}
+  if(scan&&!scan.error&&noProduct(scan)&&!lk)$("#r1").innerHTML='<div class="card warn"><h2>No product found</h2><p>Point the camera at a food pack, can, bottle or medicine strip. People and other objects are ignored.</p></div>';
+  if(look&&look.error&&!ok)$("#r2").innerHTML='<div class="card warn">Online lookup failed. Try again in a moment.</div>';
+  const st=$("#stp");if(st)st.textContent="Done in "+((performance.now()-t0)/1000).toFixed(1)+" s";
   busy=false;$("#go").disabled=false;$("#load").style.display="none";
 }
 
 async function look(b64,name){
   $("#load").style.display="block";
   try{
-    const r=await fetch("/lookup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({image:b64||"",mime:"image/jpeg",profile:profile,name:name||""})});
-    const d=await r.json();
+    const d=await post("/lookup",{image:b64||"",mime:"image/jpeg",profile:profile,name:name||""});
     if(d.error){$("#res").insertAdjacentHTML("beforeend",'<div class="card warn">'+esc(d.error)+"</div>")}
     else{
-      const p=d.product||{},v=["OK","CAREFUL","AVOID"].includes(d.verdict)?d.verdict:"CAREFUL";
-      let h='<div class="card"><h2>🌐 Found online: '+esc(p.brand?p.brand+" ":"")+esc(p.name||d.guess)+"</h2><p>Matched by name on "+esc(d.source)+". Not read from your pack, so check the real label.</p>";
-      h+='<div class="stamp '+v+'" style="font-size:1.8rem;margin:12px 0">'+v+"</div>"+list(d.reasons);
-      h+=Object.entries(p.per_100g||{}).map(([k,x])=>'<span class="tag">'+esc(k)+" "+esc(x)+" /100g</span>").join("");
-      if(p.nutriscore)h+='<span class="tag">Nutri-Score '+esc(p.nutriscore)+"</span>";
-      (p.additives||[]).forEach(a=>{h+='<span class="tag">'+esc(a)+"</span>"});
-      if(p.ingredients_text)h+='<h2 style="margin-top:12px">Ingredients</h2><pre>'+esc(p.ingredients_text)+"</pre>";
-      h+='<p style="margin-top:8px;font-size:.8rem">'+(d.cached?"⚡ From saved data":"Fresh lookup")+" · "+esc(d.ms)+" ms</p></div>";
-      $("#res").insertAdjacentHTML("beforeend",h);
-      try{const a=getH();a.unshift({t:Date.now(),v:v,k:p.name||d.guess,p:profile});localStorage.setItem("ll_hist",JSON.stringify(a.slice(0,50)))}catch(e){}
+      $("#res").insertAdjacentHTML("beforeend",lookupHtml(d));
+      try{const a=getH(),p=d.product||{};a.unshift({t:Date.now(),v:d.verdict||"CAREFUL",k:p.name||d.guess,p:profile});localStorage.setItem("ll_hist",JSON.stringify(a.slice(0,50)))}catch(e){}
     }
   }catch(e){$("#res").insertAdjacentHTML("beforeend",'<div class="card err">Could not reach the server for the online lookup.</div>')}
   $("#load").style.display="none";
@@ -236,7 +277,7 @@ function factsHtml(f){
   for(const [k,v] of Object.entries(f)){
     let s="";
     if(v==null||v==="")continue;
-    if(typeof v==="object"){s=Object.values(v).filter(x=>x!=null&&typeof x!=="object").join(" ")}else s=String(v);
+    if(typeof v==="object"){s=Object.entries(v).filter(([a,x])=>x!=null&&typeof x!=="object").map(([a,x])=>a.replace(/_/g," ")+" "+x).join(", ")}else s=String(v);
     if(s)out.push('<span class="tag">'+esc(k.replace(/_/g," "))+": "+esc(s)+"</span>");
     if(out.length>=10)break;
   }
@@ -256,8 +297,7 @@ function render(r){
   h+=factsHtml(r.facts);
   if(r.ingredients&&r.ingredients.length)h+='<div class="card"><h2>Ingredients</h2>'+r.ingredients.map(x=>'<span class="tag">'+esc(x)+"</span>").join("")+"</div>";
   h+='<div class="card"><h2>Exact text the AI read</h2><pre>'+esc(r.text_read||"(nothing was read)")+"</pre></div>";
-  $("#res").innerHTML=h;
-  $("#res").scrollIntoView({behavior:"smooth",block:"start"});
+  const T=$("#r1")||$("#res");T.innerHTML=h;
 }
 
 function getH(){try{return JSON.parse(localStorage.getItem("ll_hist")||"[]")}catch(e){return[]}}
