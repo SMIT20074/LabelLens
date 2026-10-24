@@ -27,3 +27,24 @@ def check_fssai(text_read, ingredients, confidence):
         findings.append({"rule": "Ingredient list", "status": "potential_issue",
                          "note": "No ingredient list found.", "source": SOURCE})
     return findings
+
+# LABELLENS_PATCH_FSSAI_CATEGORY
+_orig_check_fssai = check_fssai
+def check_fssai(text_read, ingredients, confidence):
+    out = _orig_check_fssai(text_read, ingredients, confidence)
+    try:
+        if out and out[0].get("rule") == "ALL":
+            return out
+        from fssai_categories import guess_category, looks_like_medicine
+        blob = (text_read or "") + " " + " ".join(str(i) for i in (ingredients or []))
+        if looks_like_medicine(blob):
+            note = "This looks like a medicine, not a food. FSSAI food categories and limits do not apply."
+        else:
+            g = guess_category(blob)
+            cat = ("Category guess: %s %s (keyword guess, not official). " % g) if g else "Food category unclear. "
+            note = cat + "Labels rarely print additive amounts and FSSAI limits per category are not loaded, so 'in range' cannot be confirmed."
+        out.append({"rule": "Ingredient amounts vs FSSAI limits", "status": "unable_to_determine", "note": note,
+                    "source": "Limits are in FSS (Food Products Standards and Food Additives) Regulations, 2011, Appendix A"})
+    except Exception:
+        pass
+    return out
