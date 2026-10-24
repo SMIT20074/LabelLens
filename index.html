@@ -1369,7 +1369,7 @@ $("#q").onkeydown=e=>{if(e.key==="Enter")ask()};
 <!-- LABELLENS_PATCH_MOCHI_LANG -->
 <script>
 (function(){
-var NOTE="[Instruction for Mochi: The user may write in English, Hindi (Devanagari) or Hinglish. Understand all three and reply in the same language and script the user used. If the user asks whether to eat, drink or use a product, start the reply with one clear line: OK, CAREFUL or AVOID (in Hindi: ठीक है, सावधान, या बचें), using the scanned label and the person's profile from the context. Then give 1-3 short reasons. If the label read is unclear or unknown, say CAREFUL and ask for a clearer photo. This is information only, not medical advice. Never give a medicine or pesticide dose.]";
+var NOTE="[Instruction for Mochi: The user may write in English, Hindi (Devanagari) or Hinglish. Understand all three and reply in the same language and script the user used. If the user asks whether to eat, drink or use a product, start the reply with one clear line: OK, CAREFUL or AVOID (in Hindi: ठीक है, सावधान, या बचें), using the scanned label and the person's profile from the context. Then give 1-3 short reasons. If the label read is unclear or unknown, say CAREFUL and ask for a clearer photo. This is information only, not medical advice. Write short plain sentences in a friendly spoken style. Do not use emoji, markdown, asterisks, bullet points or tables. Never give a medicine or pesticide dose.]";
 var of=window.fetch;
 window.fetch=function(u,o){
  try{
@@ -1404,11 +1404,11 @@ function pickVoice(hi){var v=synth.getVoices()||[];var want=hi?["hi"]:["en-IN","
  for(var i=0;i<want.length;i++){for(var j=0;j<v.length;j++){if(v[j].lang&&v[j].lang.indexOf(want[i])===0)return v[j];}}return null;}
 function speak(text){
  if(!synth||!SPEAK)return;
- var t=clean(text);if(!t||/INVALID_ARGUMENT|API key not valid/i.test(t))return;
+ var t=clean(text);if(!t||/INVALID_ARGUMENT|API key not valid|DEADLINE_EXCEEDED|UNAVAILABLE|RESOURCE_EXHAUSTED|^\d{3} [A-Z_]+/i.test(t))return;
  synth.cancel();
  var hi=/[\u0900-\u097F]/.test(t);
  var parts=t.match(/[^.!?\u0964]+[.!?\u0964]*/g)||[t];
- parts.forEach(function(p){p=p.trim();if(!p)return;
+ parts.forEach(function(p){p=p.replace(/[.,!?;:()\[\]{}"'\u201C\u201D\u2018\u2019\u0964\u0965\/\\\-\u2013\u2014\u2026&+=<>@]+/g," ").replace(/\s+/g," ").trim();if(!p)return;
   var u=new SpeechSynthesisUtterance(p);u.lang=hi?"hi-IN":"en-IN";
   var v=pickVoice(hi);if(v)u.voice=v;u.rate=0.95;synth.speak(u);});
 }
@@ -1482,6 +1482,28 @@ function build(){
  row.parentElement.insertBefore(bar,row);
 }
 setInterval(build,800);
+})();
+</script>
+
+<!-- LABELLENS_PATCH_CHAT_FRIENDLY -->
+<script>
+(function(){
+var EN="Mochi is busy right now. Please tap Ask again in a moment.";
+var HI="\u092E\u094B\u091A\u0940 \u0905\u092D\u0940 \u0935\u094D\u092F\u0938\u094D\u0924 \u0939\u0948\u0964 \u0915\u0943\u092A\u092F\u093E \u0915\u0941\u091B \u0926\u0947\u0930 \u092C\u093E\u0926 \u092B\u093F\u0930 \u0938\u0947 \u0915\u094B\u0936\u093F\u0936 \u0915\u0930\u0947\u0902\u0964";
+var of=window.fetch;
+window.fetch=function(u,o){
+ var p=of.apply(this,arguments);
+ if(typeof u==="string"&&u.indexOf("/chat")>-1){
+  var hi=false;try{var b=JSON.parse(o.body);hi=/[\u0900-\u097F]/.test(b.messages[b.messages.length-1].content);}catch(e){}
+  return p.then(function(r){
+   return r.clone().json().then(function(d){
+    if(d&&d.error){return new Response(JSON.stringify({reply:hi?HI:EN,log:null}),{status:200,headers:{"Content-Type":"application/json"}});}
+    return r;
+   }).catch(function(){return r;});
+  });
+ }
+ return p;
+};
 })();
 </script>
 </body>
